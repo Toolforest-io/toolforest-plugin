@@ -19,24 +19,14 @@ Do NOT fabricate tool names.
 </toolforest>`;
   }
 
-  const toolkitLines = state.toolkits
-    .map((t) => `  - ${t.name}: ${t.description ?? "(no description)"}`)
-    .join("\n");
-
   return `<toolforest>
-You have ${state.toolCount} Toolforest tools available, prefixed with "toolforest_".
+You have Toolforest tools available. Use this flow:
+1. Call list_toolkits to see what services are connected.
+2. Call list_toolkit_tools(toolkit) to get tools for the relevant service.
+3. Call execute_tool to run the selected tool.
 
-Connected toolkits:
-${toolkitLines}
-
-Tool naming: tools follow the pattern toolforest_{toolkit}_{action} (e.g. toolforest_github_list_repos, toolforest_google_sheets_get_values).
-
-Rules:
-- Use Toolforest tools for tasks involving the connected services above.
-- Call tools directly by name — no discovery step needed.
-- Do NOT fabricate tool names not listed above.
-- Do NOT use pretrained knowledge about Toolforest APIs.
-- If a tool returns an auth error, direct the user to www.toolforest.io to reconnect.
-- If native tools are not working, use the /toolforest-mcp skill for curl-based fallback access.
+Do NOT fabricate tool names. Do NOT skip the discovery steps.
+If a toolkit is missing, call list_additional_toolkits to check availability,
+then tell the user to connect it at www.toolforest.io.
 </toolforest>`;
 }

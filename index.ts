@@ -2,22 +2,24 @@
  * @toolforest/openclaw-plugin
  *
  * OpenClaw plugin that connects to the Toolforest MCP server and registers
- * all connected tools as native agent tools. Follows the same pattern as
- * openclaw/src/agents/pi-bundle-mcp-tools.ts for MCP-to-AgentTool bridging.
+ * 4 meta-tools for on-demand tool discovery and execution:
+ *   - list_toolkits
+ *   - list_toolkit_tools
+ *   - list_additional_toolkits
+ *   - execute_tool
  */
 
 import { ToolforestClient } from "./src/client.js";
 import { resolveConfig } from "./src/config.js";
 import { buildBlock } from "./src/prompt.js";
-import { bridgeAllTools } from "./src/tool-bridge.js";
-import { ToolkitCache } from "./src/toolkit-cache.js";
+import { bridgeMetaTools } from "./src/tool-bridge.js";
 import type { PromptState } from "./src/types.js";
 
 const pluginDefinition = {
   id: "toolforest",
   name: "Toolforest",
   description:
-    "Connect all your Toolforest toolkits as native OpenClaw agent tools.",
+    "Connect to Toolforest via 4 meta-tools for on-demand tool discovery and execution.",
 
   async register(api: PluginApi): Promise<void> {
     const cfg = resolveConfig(api.pluginConfig as Record<string, unknown> | undefined);
@@ -27,22 +29,11 @@ const pluginDefinition = {
       status: "error",
       message: "Not configured",
     };
-    let cache: ToolkitCache | null = null;
-    let toolCount = 0;
 
     // Register hook FIRST — before any async work.
     // This ensures the agent always gets prompt guidance, even on error.
     if (typeof api.on === "function") {
       api.on("before_prompt_build", () => {
-        if (cache) {
-          return {
-            prependContext: buildBlock({
-              status: "ready",
-              toolkits: cache.getToolkits(),
-              toolCount,
-            }),
-          };
-        }
         return { prependContext: buildBlock(promptState) };
       });
     }
@@ -72,29 +63,17 @@ const pluginDefinition = {
       return;
     }
 
-    try {
-      const { toolkits, tools } = await client.discoverTools();
-
-      const bridged = bridgeAllTools(tools, client);
-      toolCount = bridged.length;
-
-      for (const tool of bridged) {
-        api.registerTool(tool as never, { name: tool.name });
-      }
-
-      cache = new ToolkitCache(client, api.logger);
-      cache.seed(toolkits);
-
-      api.logger.info(
-        `toolforest: Registered ${toolCount} tools from ${toolkits.length} toolkits`,
-      );
-    } catch (err) {
-      promptState = {
-        status: "error",
-        message: `Failed to discover tools: ${err instanceof Error ? err.message : String(err)}`,
-      };
-      api.logger.warn("toolforest: " + promptState.message);
+    // Register only the 4 meta-tools
+    const metaTools = bridgeMetaTools(client);
+    for (const tool of metaTools) {
+      api.registerTool(tool as never, { name: tool.name });
     }
+
+    promptState = { status: "ready" };
+
+    api.logger.info(
+      `toolforest: Registered ${metaTools.length} meta-tools (list_toolkits, list_toolkit_tools, list_additional_toolkits, execute_tool)`,
+    );
   },
 };
 

@@ -1,13 +1,14 @@
 /**
- * Bridge Toolforest tool descriptors into OpenClaw AnyAgentTool format.
+ * Bridge the 4 Toolforest meta-tools into OpenClaw AnyAgentTool format.
  *
- * Follows the pattern from openclaw/src/agents/pi-bundle-mcp-tools.ts:
- * - parameters: raw JSON Schema (TypeBox compiles to JSON Schema at runtime)
- * - execute: forward to remote server, return { content, details }
+ * Instead of bridging 100+ individual tools, we expose only:
+ *   1. list_toolkits — see what services are connected
+ *   2. list_toolkit_tools — get tools for a specific toolkit
+ *   3. list_additional_toolkits — check what else is available
+ *   4. execute_tool — run any tool by name with arguments
  */
 
 import type { ToolforestClient } from "./client.js";
-import type { ToolforestToolDescriptor } from "./types.js";
 
 /** The AnyAgentTool shape OpenClaw expects (from pi-agent-core). */
 export interface BridgedTool {
@@ -25,65 +26,114 @@ export interface BridgedTool {
 }
 
 /**
- * Normalize a Toolforest tool name for OpenClaw.
- * "github-list_repos" → "toolforest_github_list_repos"
+ * Build the 4 meta-tools that proxy to the remote Toolforest MCP server.
  */
-function normalizeName(toolforestName: string): string {
-  return `toolforest_${toolforestName.replace(/-/g, "_")}`;
-}
-
-/**
- * Generate a human-readable label from toolkit and tool names.
- * "github-list_repos" → "GitHub: List Repos"
- */
-function generateLabel(toolforestName: string): string {
-  const parts = toolforestName.split("-");
-  const toolkit = parts[0]
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-
-  const action = (parts.slice(1).join("-") || parts[0])
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-
-  return `${toolkit}: ${action}`;
-}
-
-/**
- * Convert a Toolforest tool descriptor into an OpenClaw-compatible tool object.
- */
-export function bridgeTool(
-  descriptor: ToolforestToolDescriptor,
-  client: ToolforestClient,
-): BridgedTool {
-  const originalName = descriptor.name;
-
-  return {
-    name: normalizeName(originalName),
-    label: generateLabel(originalName),
-    description: descriptor.summary || `Toolforest tool: ${originalName}`,
-    parameters: descriptor.schema,
-    execute: async (_toolCallId: string, params: Record<string, unknown>) => {
-      const result = await client.executeTool(originalName, params);
-      return {
-        content: result.content,
-        details: {
-          toolforestTool: originalName,
-          ...(result.isError ? { status: "error" } : {}),
-        },
-      };
+export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
+  return [
+    {
+      name: "toolforest_list_toolkits",
+      label: "Toolforest: List Toolkits",
+      description:
+        "List all currently connected Toolforest toolkits (services). " +
+        "Call this first to discover what is available.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      execute: async () => {
+        const result = await client.listToolkits();
+        return {
+          content: result.content,
+          details: { metaTool: "list_toolkits", ...(result.isError ? { status: "error" } : {}) },
+        };
+      },
     },
-  };
-}
 
-/**
- * Bridge all Toolforest tool descriptors into OpenClaw tools.
- */
-export function bridgeAllTools(
-  descriptors: ToolforestToolDescriptor[],
-  client: ToolforestClient,
-): BridgedTool[] {
-  return descriptors.map((d) => bridgeTool(d, client));
+    {
+      name: "toolforest_list_toolkit_tools",
+      label: "Toolforest: List Toolkit Tools",
+      description:
+        "List available tools for a specific connected toolkit. " +
+        "Call list_toolkits first to get toolkit names, then call this with the toolkit name.",
+      parameters: {
+        type: "object",
+        properties: {
+          toolkit: {
+            type: "string",
+            description: "Name of the toolkit to list tools for (e.g. 'github', 'google_sheets').",
+          },
+        },
+        required: ["toolkit"],
+        additionalProperties: false,
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const toolkit = params.toolkit as string;
+        const result = await client.listToolkitTools(toolkit);
+        return {
+          content: result.content,
+          details: { metaTool: "list_toolkit_tools", toolkit, ...(result.isError ? { status: "error" } : {}) },
+        };
+      },
+    },
+
+    {
+      name: "toolforest_list_additional_toolkits",
+      label: "Toolforest: List Additional Toolkits",
+      description:
+        "List toolkits that are available on Toolforest but not yet connected by the user. " +
+        "Use this when the user asks for a service that is not in the connected toolkits list.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      execute: async () => {
+        const result = await client.listAdditionalToolkits();
+        return {
+          content: result.content,
+          details: { metaTool: "list_additional_toolkits", ...(result.isError ? { status: "error" } : {}) },
+        };
+      },
+    },
+
+    {
+      name: "toolforest_execute_tool",
+      label: "Toolforest: Execute Tool",
+      description:
+        "Execute a Toolforest tool by name. " +
+        "You MUST call list_toolkits and list_toolkit_tools first to discover the correct tool name and its required arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          tool_name: {
+            type: "string",
+            description:
+              "The full tool name as returned by list_toolkit_tools (e.g. 'github-list_repos').",
+          },
+          args: {
+            type: "object",
+            description:
+              "Arguments object matching the tool's schema from list_toolkit_tools.",
+            additionalProperties: true,
+          },
+        },
+        required: ["tool_name", "args"],
+        additionalProperties: false,
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const toolName = params.tool_name as string;
+        const args = (params.args as Record<string, unknown>) ?? {};
+        const result = await client.executeTool(toolName, args);
+        return {
+          content: result.content,
+          details: {
+            metaTool: "execute_tool",
+            toolforestTool: toolName,
+            ...(result.isError ? { status: "error" } : {}),
+          },
+        };
+      },
+    },
+  ];
 }
