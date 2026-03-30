@@ -1,0 +1,33 @@
+{
+  "id": "toolforest",
+  "name": "Toolforest",
+  "description": "Connect your Toolforest toolkits as native OpenClaw agent tools. Supports tools across Google Workspace, GitHub, prediction markets, health trackers, and more.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "description": "Toolforest API key (tfo_...)"
+      },
+      "remoteUrl": {
+        "type": "string",
+        "description": "Override the Toolforest MCP endpoint URL"
+      }
+    }
+  },
+  "skills": ["./skills/toolforest-mcp"],
+  "uiHints": {
+    "apiKey": {
+      "label": "Toolforest API Key",
+      "help": "Your Toolforest API key (starts with tfo_). Get one at app.toolforest.io. Fallback: TOOLFOREST_API_KEY env var.",
+      "sensitive": true,
+      "placeholder": "tfo_..."
+    },
+    "remoteUrl": {
+      "label": "Remote URL",
+      "help": "Override the default Toolforest MCP endpoint URL. Leave blank to use the standard URL for your environment.",
+      "advanced": true
+    }
+  }
+}
