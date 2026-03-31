@@ -22,7 +22,13 @@ export interface Logger {
   debug(msg: string): void;
 }
 
+/** Toolkit summary cached at startup for prompt injection. */
+export interface CachedToolkit {
+  name: string;
+  description: string;
+}
+
 /** Prompt state for the before_prompt_build hook. */
 export type PromptState =
   | { status: "error"; message: string }
-  | { status: "ready" };
+  | { status: "ready"; toolkits: CachedToolkit[] };

@@ -69,7 +69,19 @@ const pluginDefinition = {
       api.registerTool(tool as never, { name: tool.name });
     }
 
-    promptState = { status: "ready" };
+    // Fetch connected toolkits once for prompt injection
+    let toolkits: Array<{ name: string; description: string }> = [];
+    try {
+      const result = await client.listToolkits();
+      const text = result.content?.find((c) => c.type === "text")?.text;
+      if (text) {
+        toolkits = JSON.parse(text);
+      }
+    } catch (err) {
+      api.logger.warn(`toolforest: Failed to fetch toolkit list for prompt: ${err}`);
+    }
+
+    promptState = { status: "ready", toolkits };
 
     api.logger.info(
       `toolforest: Registered ${metaTools.length} meta-tools (list_toolkits, list_toolkit_tools, list_additional_toolkits, execute_tool)`,

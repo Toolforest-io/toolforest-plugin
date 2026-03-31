@@ -19,11 +19,17 @@ Do NOT fabricate tool names.
 </toolforest>`;
   }
 
+  const toolkitLines = state.toolkits
+    .map((t) => `  - ${t.name}: ${t.description}`)
+    .join("\n");
+
   return `<toolforest>
 You have Toolforest tools available. Use this flow:
-1. Call list_toolkits to see what services are connected.
-2. Call list_toolkit_tools(toolkit) to get tools for the relevant service.
-3. Call execute_tool to run the selected tool.
+1. Call list_toolkit_tools(toolkit) to get tools for the relevant service.
+2. Call execute_tool to run the selected tool.
+
+Connected toolkits:
+${toolkitLines}
 
 Do NOT fabricate tool names. Do NOT skip the discovery steps.
 If a toolkit is missing, call list_additional_toolkits to check availability,
