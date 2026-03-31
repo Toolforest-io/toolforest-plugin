@@ -26,7 +26,7 @@ Authorization: Bearer <apiKey>
 
 ## Important: How Toolforest discovery works
 
-Toolforest uses **meta-tools** exposed via the standard MCP `tools/call` method. Do NOT use `tools/list` to discover toolkit tools — that only returns the 3 meta-tools (`list_tools`, `get_tool_schema`, `execute_tool`).
+Toolforest uses **meta-tools** exposed via the standard MCP `tools/call` method. Do NOT use `tools/list` to discover toolkit tools — that only returns the meta-tools (`list_toolkits`, `list_toolkit_tools`, `list_additional_toolkits`, `get_tool_schema`, `execute_tool`).
 
 Instead, use the meta-tools in this order:
 
@@ -35,8 +35,9 @@ Instead, use the meta-tools in this order:
 ```bash
 curl -s -X POST https://mcp.toolforest.io/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer YOUR_KEY" \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"list_tools","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"list_toolkits","arguments":{}}}'
 ```
 
 Returns an array of toolkit objects with `name` and `description` (e.g. `github`, `google_sheets`, `gmail`).
@@ -46,8 +47,9 @@ Returns an array of toolkit objects with `name` and `description` (e.g. `github`
 ```bash
 curl -s -X POST https://mcp.toolforest.io/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer YOUR_KEY" \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"list_tools","arguments":{"toolkit":"github"}}}'
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"list_toolkit_tools","arguments":{"toolkit":"github"}}}'
 ```
 
 Returns tool descriptors with `name`, `summary`, `kind`, and `schema` for each tool in that toolkit.
@@ -57,8 +59,9 @@ Returns tool descriptors with `name`, `summary`, `kind`, and `schema` for each t
 ```bash
 curl -s -X POST https://mcp.toolforest.io/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer YOUR_KEY" \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"tool_name":"github-list_repos"}}}'
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"tool_names":["github-list_repos"]}}}'
 ```
 
 ## Step 4: Execute a tool
@@ -66,6 +69,7 @@ curl -s -X POST https://mcp.toolforest.io/mcp \
 ```bash
 curl -s -X POST https://mcp.toolforest.io/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer YOUR_KEY" \
   -d '{
     "jsonrpc": "2.0", "id": "1", "method": "tools/call",
