@@ -21,16 +21,24 @@ export class ToolkitCache {
   }
 
   /**
-   * Return cached toolkits immediately (never blocks).
-   * If the cache is stale, kicks off a background refresh.
+   * Return cached toolkits. Awaits on first call (cache empty),
+   * then never blocks — background refresh if stale.
    */
-  getToolkits(client: ToolforestClient): CachedToolkit[] {
+  async getToolkits(client: ToolforestClient): Promise<CachedToolkit[]> {
+    if (this.toolkits.length === 0 && !this.refreshing) {
+      // First call — await so the first prompt has data
+      await this._refresh(client);
+      return this.toolkits;
+    }
+
     if (Date.now() - this.fetchedAt >= this.ttlMs && !this.refreshing) {
+      // Stale — fire-and-forget background refresh
       this.refreshing = true;
       this._refresh(client).finally(() => {
         this.refreshing = false;
       });
     }
+
     return this.toolkits;
   }
 

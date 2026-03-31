@@ -38,10 +38,10 @@ const pluginDefinition = {
     // Register hook FIRST — before any async work.
     // This ensures the agent always gets prompt guidance, even on error.
     if (typeof api.on === "function") {
-      api.on("before_prompt_build", () => {
-        // Never blocks — reads from cache, kicks off background refresh if stale
+      api.on("before_prompt_build", async () => {
+        // Awaits on first call only (cold cache), then returns instantly from cache
         if (promptState.status === "ready" && client) {
-          const toolkits = cache.getToolkits(client);
+          const toolkits = await cache.getToolkits(client);
           return { prependContext: buildBlock({ ...promptState, toolkits }) };
         }
         return { prependContext: buildBlock(promptState) };
@@ -78,9 +78,6 @@ const pluginDefinition = {
     for (const tool of metaTools) {
       api.registerTool(tool as never, { name: tool.name });
     }
-
-    // Warm the cache (fire-and-forget — don't block registration)
-    cache._refresh(client).catch(() => {});
 
     promptState = { status: "ready", toolkits: [] };
 
