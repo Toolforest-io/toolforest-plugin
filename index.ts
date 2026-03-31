@@ -12,6 +12,7 @@
 import { ToolforestClient } from "./src/client.js";
 import { resolveConfig } from "./src/config.js";
 import { buildBlock } from "./src/prompt.js";
+import { ToolkitCache } from "./src/toolkit-cache.js";
 import { bridgeMetaTools } from "./src/tool-bridge.js";
 import type { PromptState } from "./src/types.js";
 
@@ -30,10 +31,19 @@ const pluginDefinition = {
       message: "Not configured",
     };
 
+    // Shared references set after successful connect
+    let client: ToolforestClient | null = null;
+    const cache = new ToolkitCache(5 * 60 * 1000, api.logger);
+
     // Register hook FIRST — before any async work.
     // This ensures the agent always gets prompt guidance, even on error.
     if (typeof api.on === "function") {
-      api.on("before_prompt_build", () => {
+      api.on("before_prompt_build", async () => {
+        // Awaits on first call only (cold cache), then returns instantly from cache
+        if (promptState.status === "ready" && client) {
+          const toolkits = await cache.getToolkits(client);
+          return { prependContext: buildBlock({ ...promptState, toolkits }) };
+        }
         return { prependContext: buildBlock(promptState) };
       });
     }
@@ -49,7 +59,7 @@ const pluginDefinition = {
       return;
     }
 
-    const client = new ToolforestClient();
+    client = new ToolforestClient();
 
     try {
       await client.connect(cfg.remoteUrl, cfg.apiKey);
@@ -69,7 +79,7 @@ const pluginDefinition = {
       api.registerTool(tool as never, { name: tool.name });
     }
 
-    promptState = { status: "ready" };
+    promptState = { status: "ready", toolkits: [] };
 
     api.logger.info(
       `toolforest: Registered ${metaTools.length} meta-tools (list_toolkits, list_toolkit_tools, list_additional_toolkits, execute_tool)`,
