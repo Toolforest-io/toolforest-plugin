@@ -1,6 +1,6 @@
 {
   "name": "@toolforest/toolforest-plugin",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "description": "OpenClaw plugin for Toolforest — registers all connected tools as native agent tools",
   "type": "module",
   "main": "./dist/index.js",
