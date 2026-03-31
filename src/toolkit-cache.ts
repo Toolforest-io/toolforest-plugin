@@ -45,9 +45,13 @@ export class ToolkitCache {
   /** Fetch toolkit list from remote and update cache. */
   private async _refresh(client: ToolforestClient): Promise<void> {
     try {
-      const toolkits = await client.listToolkits();
-      if (toolkits.length > 0) {
-        this.toolkits = toolkits;
+      const result = await client.listToolkits();
+      const text = result.content?.find((c) => c.type === "text")?.text;
+      if (text) {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.toolkits = parsed;
+        }
       }
     } catch (err) {
       this.logger?.warn(`toolforest: Failed to refresh toolkit cache: ${err}`);
