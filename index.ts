@@ -12,6 +12,7 @@
 import { ToolforestClient } from "./src/client.js";
 import { resolveConfig } from "./src/config.js";
 import { buildBlock } from "./src/prompt.js";
+import { ToolkitCache } from "./src/toolkit-cache.js";
 import { bridgeMetaTools } from "./src/tool-bridge.js";
 import type { PromptState } from "./src/types.js";
 
@@ -30,10 +31,19 @@ const pluginDefinition = {
       message: "Not configured",
     };
 
+    // Shared references set after successful connect
+    let client: ToolforestClient | null = null;
+    const cache = new ToolkitCache(5 * 60 * 1000, api.logger);
+
     // Register hook FIRST — before any async work.
     // This ensures the agent always gets prompt guidance, even on error.
     if (typeof api.on === "function") {
       api.on("before_prompt_build", () => {
+        // Never blocks — reads from cache, kicks off background refresh if stale
+        if (promptState.status === "ready" && client) {
+          const toolkits = cache.getToolkits(client);
+          return { prependContext: buildBlock({ ...promptState, toolkits }) };
+        }
         return { prependContext: buildBlock(promptState) };
       });
     }
@@ -49,7 +59,7 @@ const pluginDefinition = {
       return;
     }
 
-    const client = new ToolforestClient();
+    client = new ToolforestClient();
 
     try {
       await client.connect(cfg.remoteUrl, cfg.apiKey);
@@ -69,19 +79,10 @@ const pluginDefinition = {
       api.registerTool(tool as never, { name: tool.name });
     }
 
-    // Fetch connected toolkits once for prompt injection
-    let toolkits: Array<{ name: string; description: string }> = [];
-    try {
-      const result = await client.listToolkits();
-      const text = result.content?.find((c) => c.type === "text")?.text;
-      if (text) {
-        toolkits = JSON.parse(text);
-      }
-    } catch (err) {
-      api.logger.warn(`toolforest: Failed to fetch toolkit list for prompt: ${err}`);
-    }
+    // Warm the cache (fire-and-forget — don't block registration)
+    cache._refresh(client).catch(() => {});
 
-    promptState = { status: "ready", toolkits };
+    promptState = { status: "ready", toolkits: [] };
 
     api.logger.info(
       `toolforest: Registered ${metaTools.length} meta-tools (list_toolkits, list_toolkit_tools, list_additional_toolkits, execute_tool)`,
