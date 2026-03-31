@@ -6,7 +6,7 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { ToolExecutionResult } from "./types.js";
+import type { CachedToolkit, ToolExecutionResult } from "./types.js";
 
 export class ToolforestClient {
   private client: Client | null = null;
@@ -27,17 +27,24 @@ export class ToolforestClient {
     await this.client.connect(this.transport);
   }
 
-  /** Call the remote list_tools() with no arguments to get connected toolkits. */
-  async listToolkits(): Promise<ToolExecutionResult> {
+  /**
+   * Discover connected toolkits by calling MCP tools/list and extracting
+   * unique toolkit prefixes from tool names (e.g. "github-list_repos" → "github").
+   */
+  async listToolkits(): Promise<CachedToolkit[]> {
     if (!this.client) throw new Error("Not connected");
-    const result = await this.client.callTool({
-      name: "list_tools",
-      arguments: {},
-    });
-    return {
-      content: (result.content ?? []) as ToolExecutionResult["content"],
-      isError: result.isError as boolean | undefined,
-    };
+    const result = await this.client.listTools();
+    const toolkitSet = new Map<string, string>();
+    for (const tool of result.tools) {
+      const dash = tool.name.indexOf("-");
+      if (dash > 0) {
+        const name = tool.name.substring(0, dash);
+        if (!toolkitSet.has(name)) {
+          toolkitSet.set(name, tool.description ?? "");
+        }
+      }
+    }
+    return Array.from(toolkitSet, ([name, description]) => ({ name, description }));
   }
 
   /** Call the remote list_tools(toolkit=X) to get tools for a specific toolkit. */

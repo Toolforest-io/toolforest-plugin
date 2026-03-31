@@ -42,10 +42,10 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
         additionalProperties: false,
       },
       execute: async () => {
-        const result = await client.listToolkits();
+        const toolkits = await client.listToolkits();
         return {
-          content: result.content,
-          details: { metaTool: "list_toolkits", ...(result.isError ? { status: "error" } : {}) },
+          content: [{ type: "text", text: JSON.stringify(toolkits, null, 2) }],
+          details: { metaTool: "list_toolkits" },
         };
       },
     },
