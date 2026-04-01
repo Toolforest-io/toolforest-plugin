@@ -34,8 +34,14 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
       name: "toolforest_list_toolkits",
       label: "Toolforest: List Toolkits",
       description:
-        "List all currently connected Toolforest toolkits (services). " +
-        "Call this first to discover what is available.",
+        "List all connected Toolforest toolkits with their names and descriptions. " +
+        "Call this first when the user asks about a connected service or when you are unsure " +
+        "which toolkit handles a task. Do NOT guess toolkit names from pretrained knowledge. " +
+        "Returns: array of { name, description } for each connected toolkit. " +
+        "After calling: if the relevant toolkit is in the list, call toolforest_list_toolkit_tools " +
+        "with that toolkit name to get its available tools before executing anything. " +
+        "If the needed toolkit is missing, call toolforest_list_additional_toolkits to check " +
+        "availability, then direct the user to www.toolforest.io to connect it.",
       parameters: {
         type: "object",
         properties: {},
@@ -54,8 +60,13 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
       name: "toolforest_list_toolkit_tools",
       label: "Toolforest: List Toolkit Tools",
       description:
-        "List available tools for a specific connected toolkit. " +
-        "Call list_toolkits first to get toolkit names, then call this with the toolkit name.",
+        "List all available tools for a specific Toolforest toolkit, including full input schemas. " +
+        "Call this after toolforest_list_toolkits confirms the toolkit is connected, and before " +
+        "calling toolforest_execute_tool. Do NOT call execute_tool with a tool name you have not " +
+        "confirmed exists. Returns: array of tools with { name, description, inputSchema } for " +
+        "each tool. After calling: select the tool that matches the user's intent, construct " +
+        "arguments from the schema, then call toolforest_execute_tool. If no tool fits, tell the " +
+        "user what the toolkit does support rather than attempting a guess.",
       parameters: {
         type: "object",
         properties: {

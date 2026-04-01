@@ -29,11 +29,14 @@ Do NOT fabricate tool names.
 
   return `<toolforest>
 You have Toolforest tools available. Use this flow:
-1. Call toolforest_list_toolkit_tools(toolkit) to get tools for the relevant service.
-2. Call toolforest_execute_tool to run the selected tool.
-${toolkitSection}
-Do NOT fabricate tool names. Do NOT skip the discovery steps.
+1. Call toolforest_list_toolkits to see what services are connected.
+2. Call toolforest_list_toolkit_tools(toolkit) to get tools for the relevant service.
+3. Call toolforest_execute_tool to run the selected tool.
+
 If a toolkit is missing, call toolforest_list_additional_toolkits to check availability,
 then tell the user to connect it at www.toolforest.io.
+${toolkitSection}
+Do NOT fabricate tool names. Do NOT skip the discovery steps.
+If native tools are not working, use the /toolforest-mcp skill for curl-based fallback access.
 </toolforest>`;
 }

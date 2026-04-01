@@ -7,7 +7,7 @@ OpenClaw plugin that connects your [Toolforest](https://www.toolforest.io) toolk
 ### 1. Install the plugin
 
 ```bash
-openclaw plugins install @toolforest/toolforest-plugin
+openclaw plugins install @toolforest/toolforest-plugin@latest
 ```
 
 ### 2. Set your API key
@@ -29,7 +29,7 @@ if(!v.includes('toolforest'))v.push('toolforest'); console.log(JSON.stringify(v)
 > **Note:** `tools.alsoAllow` ensures Toolforest tools remain available when using non-full
 > tool profiles such as `coding`, `minimal`, and `messaging`. The command above safely appends
 > `toolforest` to any existing entries — unlike `openclaw config set tools.alsoAllow '["toolforest"]'`
-> which would overwrite the entire list and remove any other plugins you have configured.
+> which would replace the entire list and remove any other plugins you have configured.
 
 ### 4. Restart the gateway
 
@@ -56,10 +56,9 @@ Or set the `TOOLFOREST_API_KEY` environment variable as an alternative to step 2
 ## How it works
 
 1. Connects to the Toolforest MCP server using your API key
-2. Discovers all connected toolkits and their tools
-3. Registers each tool as a native OpenClaw agent tool (prefixed with `toolforest_`)
-4. Injects prompt guidance so the agent knows which toolkits are available
-5. Refreshes the toolkit list in the background every 5 minutes
+2. Registers 4 meta-tools (`list_toolkits`, `list_toolkit_tools`, `list_additional_toolkits`, `execute_tool`) for on-demand toolkit discovery and execution
+3. Injects prompt guidance so the agent knows which toolkits are available
+4. Refreshes the toolkit list in the background every 5 minutes
 
 If the plugin fails to connect, the agent will surface a helpful error message with setup instructions rather than silently failing.
 
