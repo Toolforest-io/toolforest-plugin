@@ -26,9 +26,11 @@ Authorization: Bearer <apiKey>
 
 ## Important: How Toolforest discovery works
 
-Toolforest uses **meta-tools** exposed via the standard MCP `tools/call` method. Do NOT use `tools/list` to discover toolkit tools — that only returns the meta-tools (`list_toolkits`, `list_toolkit_tools`, `list_additional_toolkits`, `get_tool_schema`, `execute_tool`).
+Toolforest exposes **5 meta-tools** via the standard MCP `tools/call` method. Do NOT use `tools/list` to discover toolkit tools — that only returns the 5 meta-tools: `list_toolkits`, `list_toolkit_tools`, `get_tool_schemas`, `list_additional_toolkits`, `execute_tool`.
 
-Instead, use the meta-tools in this order:
+The server runs in **compact mode**: `list_toolkit_tools` returns tool names + descriptions only (no schemas). You MUST call `get_tool_schemas` for the tools you want to use before `execute_tool` — do not guess parameter names.
+
+Use the meta-tools in this order:
 
 ## Step 1: List connected toolkits
 
@@ -52,17 +54,19 @@ curl -s -X POST https://mcp.toolforest.io/mcp \
   -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"list_toolkit_tools","arguments":{"toolkit":"github"}}}'
 ```
 
-Returns tool descriptors with `name`, `summary`, `kind`, and `schema` for each tool in that toolkit.
+Returns `{name, description, kind}` for each tool — **no `inputSchema`** (it's compact mode). Scan the list and pick the tool names you actually plan to call.
 
-## Step 3: Get a tool's parameter schema (optional)
+## Step 3: Fetch schemas for the tools you want to use (required)
 
 ```bash
 curl -s -X POST https://mcp.toolforest.io/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer YOUR_KEY" \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"tool_names":["github-list_repos"]}}}'
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/call","params":{"name":"get_tool_schemas","arguments":{"tools":["github-list_repos","github-get_repo"]}}}'
 ```
+
+Returns `{name, description, inputSchema}` for each requested tool. Use `inputSchema` to construct `args` for Step 4.
 
 ## Step 4: Execute a tool
 

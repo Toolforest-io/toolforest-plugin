@@ -1,7 +1,13 @@
 /**
  * Toolforest MCP client — connects to the remote Toolforest MCP server
- * and forwards meta-tool calls (list_toolkits, list_toolkit_tools,
- * list_additional_toolkits, execute_tool).
+ * and forwards the 5 meta-tools exposed in compact mode:
+ *   list_toolkits, list_toolkit_tools, get_tool_schemas,
+ *   list_additional_toolkits, execute_tool.
+ *
+ * The server runs in compact mode: list_toolkit_tools returns tool names +
+ * short descriptions only (no input schemas). Callers must use
+ * get_tool_schemas to fetch the full input schemas before invoking
+ * execute_tool.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -40,12 +46,33 @@ export class ToolforestClient {
     };
   }
 
-  /** Call the list_toolkit_tools meta-tool to get tools for a specific toolkit. */
+  /**
+   * Call the list_toolkit_tools meta-tool to get tools for a specific toolkit.
+   * Returns compact descriptors `{name, description, kind}` — no input schemas.
+   * Call getToolSchemas() afterwards to fetch the schemas needed for execute().
+   */
   async listToolkitTools(toolkit: string): Promise<ToolExecutionResult> {
     if (!this.client) throw new Error("Not connected");
     const result = await this.client.callTool({
       name: "list_toolkit_tools",
       arguments: { toolkit },
+    });
+    return {
+      content: (result.content ?? []) as ToolExecutionResult["content"],
+      isError: result.isError as boolean | undefined,
+    };
+  }
+
+  /**
+   * Call the get_tool_schemas meta-tool to fetch full input schemas for a
+   * specific set of tools. Required step between list_toolkit_tools and
+   * execute_tool in compact mode.
+   */
+  async getToolSchemas(tools: string[]): Promise<ToolExecutionResult> {
+    if (!this.client) throw new Error("Not connected");
+    const result = await this.client.callTool({
+      name: "get_tool_schemas",
+      arguments: { tools },
     });
     return {
       content: (result.content ?? []) as ToolExecutionResult["content"],

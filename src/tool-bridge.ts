@@ -1,11 +1,15 @@
 /**
- * Bridge the 4 Toolforest meta-tools into OpenClaw AnyAgentTool format.
+ * Bridge the 5 Toolforest meta-tools into OpenClaw AnyAgentTool format.
  *
- * Instead of bridging 100+ individual tools, we expose only:
- *   1. list_toolkits — see what services are connected
- *   2. list_toolkit_tools — get tools for a specific toolkit
- *   3. list_additional_toolkits — check what else is available
- *   4. execute_tool — run any tool by name with arguments
+ * The Toolforest MCP server runs in compact mode: list_toolkit_tools returns
+ * tool names + short descriptions only (no input schemas). Agents must call
+ * get_tool_schemas for the specific tools they want to use before invoking
+ * execute_tool. We expose:
+ *   1. list_toolkits           — see what services are connected
+ *   2. list_toolkit_tools      — get compact tool list for a toolkit (no schemas)
+ *   3. get_tool_schemas        — fetch full input schemas for specific tools
+ *   4. list_additional_toolkits — check what else is available but not connected
+ *   5. execute_tool            — run any tool by name with arguments
  */
 
 import type { ToolforestClient } from "./client.js";
@@ -26,7 +30,7 @@ export interface BridgedTool {
 }
 
 /**
- * Build the 4 meta-tools that proxy to the remote Toolforest MCP server.
+ * Build the 5 meta-tools that proxy to the remote Toolforest MCP server.
  */
 export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
   return [
@@ -60,13 +64,13 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
       name: "toolforest_list_toolkit_tools",
       label: "Toolforest: List Toolkit Tools",
       description:
-        "List all available tools for a specific Toolforest toolkit, including full input schemas. " +
-        "Call this after toolforest_list_toolkits confirms the toolkit is connected, and before " +
-        "calling toolforest_execute_tool. Do NOT call execute_tool with a tool name you have not " +
-        "confirmed exists. Returns: array of tools with { name, description, inputSchema } for " +
-        "each tool. After calling: select the tool that matches the user's intent, construct " +
-        "arguments from the schema, then call toolforest_execute_tool. If no tool fits, tell the " +
-        "user what the toolkit does support rather than attempting a guess.",
+        "List available tools for a specific Toolforest toolkit. Returns " +
+        "`{name, description, kind}` for each tool — descriptions only, no " +
+        "input schemas. Call this after toolforest_list_toolkits confirms the " +
+        "toolkit is connected. After calling: pick the tools you need and call " +
+        "toolforest_get_tool_schemas with their names to fetch the full input " +
+        "schemas, then call toolforest_execute_tool. Do NOT call execute_tool " +
+        "with a tool name you have not confirmed exists.",
       parameters: {
         type: "object",
         properties: {
@@ -84,6 +88,43 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
         return {
           content: result.content,
           details: { metaTool: "list_toolkit_tools", toolkit, ...(result.isError ? { status: "error" } : {}) },
+        };
+      },
+    },
+
+    {
+      name: "toolforest_get_tool_schemas",
+      label: "Toolforest: Get Tool Schemas",
+      description:
+        "Fetch full input schemas for specific Toolforest tools. Use this " +
+        "after toolforest_list_toolkit_tools to get the exact parameter " +
+        "definitions before calling toolforest_execute_tool. Returns " +
+        "`{name, description, inputSchema}` for each requested tool. " +
+        "Do NOT guess parameters — always fetch the schema first.",
+      parameters: {
+        type: "object",
+        properties: {
+          tools: {
+            type: "array",
+            description:
+              "Tool names to fetch schemas for (e.g. ['github-list_repos', 'github-get_repo']).",
+            items: { type: "string" },
+            minItems: 1,
+          },
+        },
+        required: ["tools"],
+        additionalProperties: false,
+      },
+      execute: async (_toolCallId: string, params: Record<string, unknown>) => {
+        const tools = (params.tools as string[]) ?? [];
+        const result = await client.getToolSchemas(tools);
+        return {
+          content: result.content,
+          details: {
+            metaTool: "get_tool_schemas",
+            toolCount: tools.length,
+            ...(result.isError ? { status: "error" } : {}),
+          },
         };
       },
     },
@@ -112,8 +153,10 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
       name: "toolforest_execute_tool",
       label: "Toolforest: Execute Tool",
       description:
-        "Execute a Toolforest tool by name. " +
-        "You MUST call list_toolkits and list_toolkit_tools first to discover the correct tool name and its required arguments.",
+        "Execute a Toolforest tool by name. You MUST call " +
+        "toolforest_list_toolkits, toolforest_list_toolkit_tools, and " +
+        "toolforest_get_tool_schemas first so the tool name is confirmed and " +
+        "the args match the schema. Do not guess parameter names.",
       parameters: {
         type: "object",
         properties: {
@@ -125,7 +168,7 @@ export function bridgeMetaTools(client: ToolforestClient): BridgedTool[] {
           args: {
             type: "object",
             description:
-              "Arguments object matching the tool's schema from list_toolkit_tools.",
+              "Arguments object matching the tool's inputSchema (obtained via get_tool_schemas).",
             additionalProperties: true,
           },
         },

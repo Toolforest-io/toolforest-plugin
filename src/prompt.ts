@@ -28,15 +28,18 @@ Do NOT fabricate tool names.
     : "\nCall toolforest_list_toolkits to see what services are connected.\n";
 
   return `<toolforest>
-You have Toolforest tools available. Use this flow:
+You have Toolforest tools available. The server runs in compact mode —
+list_toolkit_tools returns only names and short descriptions, so you must
+fetch full schemas before executing. Use this flow:
 1. Call toolforest_list_toolkits to see what services are connected.
-2. Call toolforest_list_toolkit_tools(toolkit) to get tools for the relevant service.
-3. Call toolforest_execute_tool to run the selected tool.
+2. Call toolforest_list_toolkit_tools(toolkit) to get the tool list for the relevant service. Returns name + description only, no schemas.
+3. Call toolforest_get_tool_schemas(tools) with the specific tool names you want. Returns the full inputSchema for each.
+4. Call toolforest_execute_tool with tool_name and args constructed from the fetched schema.
 
 If a toolkit is missing, call toolforest_list_additional_toolkits to check availability,
 then tell the user to connect it at www.toolforest.io.
 ${toolkitSection}
-Do NOT fabricate tool names. Do NOT skip the discovery steps.
+Do NOT fabricate tool names. Do NOT guess argument names — always fetch the schema first.
 If native tools are not working, use the /toolforest-mcp skill for curl-based fallback access.
 </toolforest>`;
 }
